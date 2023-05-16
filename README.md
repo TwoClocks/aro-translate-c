@@ -12,8 +12,8 @@ to
 var var1: c_int = 7;
 ```
 
-the build.zig assumes [arocc](https://github.com/Vexu/arocc) is in the relative directly of `../arocc`.
+the `build.zig` assumes [arocc](https://github.com/Vexu/arocc) is in the relative directly of `../arocc`.
 
-Both arocc and zig should be from a master.
+Both arocc and zig should be from head of master.
 
 
