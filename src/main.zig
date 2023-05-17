@@ -206,15 +206,22 @@ fn renderNode(c: *Context, aro_node_idx: aro.Tree.NodeIndex) !zig.Ast.Node.Index
 
     switch (tag) {
         .@"var" => {
+            _ = try c.addToken(.keyword_pub, "pub");
             const mut_tok = try c.addToken(.keyword_var, "var");
 
             _ = try c.addIdentifier(c.tree.tokSlice(data.decl.name));
             _ = try c.addToken(.colon, ":");
-            const type_node = try c.addNode(.{
-                .tag = .identifier,
-                .main_token = try c.addToken(.identifier, transIntType(ty)),
-                .data = undefined,
-            });
+            const zig_type = transBuiltinType(ty);
+            const type_node =
+                if (zig_type) |type_str|
+                try c.addNode(.{
+                    .tag = .identifier,
+                    .main_token = try c.addToken(.identifier, type_str),
+                    .data = undefined,
+                })
+            else
+                0;
+
             _ = try c.addToken(.equal, "=");
             const init_node = if (data.decl.node != .none)
                 try renderNode(c, data.decl.node)
@@ -245,6 +252,31 @@ fn renderNode(c: *Context, aro_node_idx: aro.Tree.NodeIndex) !zig.Ast.Node.Index
                 .data = undefined,
             });
         },
+        .typedef => {
+            _ = try c.addToken(.keyword_pub, "pub");
+            const mut_tok = try c.addToken(.keyword_const, "const");
+            _ = try c.addIdentifier(c.tree.tokSlice(data.decl.name));
+            _ = try c.addToken(.equal, "=");
+            const zig_type = transBuiltinType(ty);
+            const type_node = if (zig_type) |type_str|
+                try c.addNode(.{
+                    .tag = .identifier,
+                    .main_token = try c.addToken(.identifier, type_str),
+                    .data = undefined,
+                })
+            else
+                0; // TODO - all non-builtin types
+            _ = try c.addToken(.semicolon, ";");
+
+            return c.addNode(.{
+                .tag = .simple_var_decl,
+                .main_token = mut_tok,
+                .data = .{
+                    .lhs = 0,
+                    .rhs = type_node,
+                },
+            });
+        },
         else => {
             std.debug.print("\nunknown node tag type:{s}\n", .{@tagName(tag)});
             return 0;
@@ -252,11 +284,48 @@ fn renderNode(c: *Context, aro_node_idx: aro.Tree.NodeIndex) !zig.Ast.Node.Index
     }
 }
 
-//fn transIntType(ty: aro.Type) []const u8 {
-fn transIntType(ty: anytype) []const u8 {
+fn transBuiltinType(ty: aro.Type) ?[]const u8 {
     switch (ty.specifier) {
-        .char => return "i8",
+        .char,
+        .uchar,
+        => return "u8",
+        .schar => return "i8",
+        .short => return "c_short",
+        .ushort => return "c_ushort",
         .int => return "c_int",
-        else => unreachable,
+        .uint => return "c_uint",
+        .long => return "c_long",
+        .ulong => return "c_ulong",
+        .long_long => return "c_longlong",
+        .ulong_long => return "c_ulonglong",
+        .int128 => return "i128",
+        .uint128 => return "u128",
+        // .complex_char,
+        // .complex_schar,
+        // .complex_uchar,
+        // .complex_short,
+        // .complex_ushort,
+        // .complex_int,
+        // .complex_uint,
+        // .complex_long,
+        // .complex_ulong,
+        // .complex_long_long,
+        // .complex_ulong_long,
+        // .complex_int128,
+        // .complex_uint128,
+        .fp16,
+        .float16,
+        => return "f16",
+        .float => return "f32",
+        .double => return "f64",
+        .long_double,
+        .float128,
+        => return "f128",
+        .float80 => return "f80",
+
+        else => {
+            std.debug.print("\narocc type not buitlin type:{s}\n", .{@tagName(ty.specifier)});
+            return null;
+        },
     }
 }
